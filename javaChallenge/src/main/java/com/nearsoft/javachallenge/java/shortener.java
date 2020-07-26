@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.*;
+import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 /**
@@ -32,7 +33,7 @@ public class shortener extends HttpServlet {
      * @throws ServletException if a servlet-specific error occurs
      * @throws IOException if an I/O error occurs
      */
-    protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+    private void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         response.setContentType("text/html;charset=UTF-8");
         try ( PrintWriter out = response.getWriter()) {
@@ -43,10 +44,51 @@ public class shortener extends HttpServlet {
             out.println("<title>Shortener</title>");            
             out.println("</head>");
             out.println("<body>");
-            out.println("<h1>Servlet shortener at " + request.getContextPath() + "</h1>");
+            //out.println("<h1>Servlet shortener at " + request.getContextPath() + "</h1>");
+            out.println("<form action=\"shortener\" method=\"post\">");
+            out.println("<input type=\"text\" name=\"url\">");
+            out.println("<input type=\"submit\" value=\"Generate short URL\">");
+            out.println("</form>");
+            out.println("<br>");
+            out.println("<br>");
+            out.println("<form action=\"shortener\" method=\"get\">");
+            out.println("<input type=\"text\" name=\"alias\">");
+            out.println("<input type=\"submit\" value=\"Search Url by Alias\">");
+            out.println("</form>");
+            out.println("<br>");
+            out.println("Redirect to:");
             out.println("</body>");
             out.println("</html>");
         }
+    }
+    private void response(HttpServletResponse resp, String normalUrl, int method)
+                    throws IOException {
+            PrintWriter out = resp.getWriter();
+            out.println("<html>");
+            out.println("<head>");
+            out.println("<title>Shortener</title>");            
+            out.println("</head>");
+            out.println("<body>");
+            out.println("<form action=\"shortener\" method=\"post\">");
+            out.println("<input type=\"text\" name=\"url\">");
+            out.println("<input type=\"submit\" value=\"Generate short URL\">");
+            out.println("</form>");
+            if(1 == method){
+                out.println("alias:"+normalUrl);
+            }
+            out.println("<br>");
+            out.println("<br>");
+            out.println("<form>");
+            out.println("<input type=\"text\" name=\"alias\">");
+            out.println("<input type=\"submit\" value=\"Search Url by Alias\">");
+            out.println("</form>");
+            out.println("<br>");
+            if(2 == method){
+                out.println("Redirect to:"+normalUrl);
+                //resp.sendRedirect(normalUrl);
+            }
+            out.println("</body>");
+            out.println("</html>");;
     }
     public String generateSpecialAlias(String url) {
             String alias = "";
@@ -66,22 +108,39 @@ public class shortener extends HttpServlet {
         return alias;
     }
     
-    public void saveUrl(String url) {
+    public String saveUrl(String url) {
+            String alias = "";
             if(!savedUrls.containsKey(url)) {
                     if(url.contains("google")) {
-                        savedUrls.put(url, generateAlias(5));
+                       alias = generateAlias(5);
+                        savedUrls.put(url, alias );
                     }
                     else if(url.contains("yahoo")) {
-                        savedUrls.put(url, generateAlias(7));
+                        alias = generateAlias(7);
+                        savedUrls.put(url, alias );
+                    }
+                    else if(!url.equals("")){
+                        alias = generateSpecialAlias(url);
+                        savedUrls.put(url, alias);
                     }
                     else {
-                        savedUrls.put(url, generateSpecialAlias(url));
-                    }	
+                        alias = "Empty request";
+                    }
             }
-            else {
-                    System.out.println("Saved Before");
+            else{
+                alias=savedUrls.get(url);
             }
-            System.out.println(savedUrls);
+            return alias;
+    }
+    
+    public String searchUrl(String alias){
+        String url = "";
+        for (Entry<String, String> entry : savedUrls.entrySet()){
+            if (entry.getValue().equals(alias)) {
+                return entry.getKey();
+            }
+        }
+        return "Url Not Found";
     }
 
     // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
@@ -96,7 +155,14 @@ public class shortener extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        String alias = request.getParameter("alias");
+        if(alias == null){
+            response(response,"",0);
+        }
+        else{
+            response(response,searchUrl(alias),2);
+        }
+        
     }
 
     /**
@@ -110,7 +176,14 @@ public class shortener extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+       String normalUrl = request.getParameter("url");
+       if(normalUrl == null){
+           response(response,"",0);
+        }
+        else{
+           String alias = saveUrl(normalUrl);  
+           response(response,alias,1);
+        }
     }
 
     /**
